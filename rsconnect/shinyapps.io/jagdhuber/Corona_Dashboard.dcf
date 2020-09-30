@@ -1,0 +1,12 @@
+name: Corona_Dashboard
+title: Corona_Dashboard
+username:
+account: jagdhuber
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2911084
+bundleId: 3684074
+url: https://jagdhuber.shinyapps.io/Corona_Dashboard/
+when: 1601398782.50118
+asMultiple: FALSE
+asStatic: FALSE

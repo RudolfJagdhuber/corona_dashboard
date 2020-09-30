@@ -1,8 +1,8 @@
 library(shiny)
 library(shinydashboard)
+library(shinycssloaders)
 library(data.table)
 library(ggplot2);theme_set(theme_bw())
-library(kableExtra)
 library(plotly)
 library(sparkline)
 library(DT)
@@ -10,128 +10,13 @@ library(DT)
 
 # function to compute vector of summed infections for last n days
 # ni = New infections vector sorted by date (newest first!)
-# ATTENTION: VERIFY THAT THE DATES HAVE NO GAPS!
+# VERIFY THAT THE DATES HAVE NO GAPS!
 new7 = function(ni, n = 7) {
     res = rep(0, length(ni))
     for (i in 1:(length(ni) - n + 1)) res[i] = sum(ni[i:(i + n - 1)])
     return(res)
 }
 
-
-
-
-##############################
-### International WHO Data ###
-##############################
-
-WHO = fread("https://covid19.who.int/WHO-COVID-19-global-data.csv", 
-    colClasses = c("Date", rep("character", 3), rep("integer", 4)), 
-    select = c("Date_reported", "Country", "New_cases", "New_deaths"))
-colnames(WHO)[1] = "Datum"
-
-# Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
-all_vals = data.table(expand.grid(
-    Datum = seq(min(WHO$Datum), max(WHO$Datum), 1),
-    Country = unique(WHO$Country)))
-WHO = merge(all_vals, WHO, by = c("Datum", "Country"), all = TRUE)
-WHO[is.na(WHO)] = 0
-#WHO[is.na(New_cases) & Datum != max(Datum), New_cases := 0]
-#WHO[is.na(New_deaths) & Datum != max(Datum), New_deaths := 0]
-
-# Read Census Data and remove WHO data without population info
-pop_WHO = fread("./www/pop_WHO.csv")
-pop_WHO$Population = 1000 * pop_WHO$Population # pop is given in 1000 precision
-WHO = merge(WHO, pop_WHO, by = "Country")
-
-# Insert Cumulative Cases and Deaths
-setorder(WHO, Country, Datum)
-WHO[, c("Gesamtinfektionen", "GesamtTote") := .(cumsum(New_cases), 
-    cumsum(New_deaths)), by = Country]
-
-# Add info of relative infections within last 7 days
-setorder(WHO, Country, -Datum)
-WHO[, New7 := new7(New_cases), by = Country]
-WHO[, New100k := round(1e5 * New7 / Population, 2)]
-
-# Compute Overview table worldwide
-topI = WHO[, .(Spark = spk_chr(rev(New100k)), New100k = New100k[1], 
-    Neuinfektionen = New_cases[1], Gesamtinfektionen = Gesamtinfektionen[1], 
-    Durchseuchung = round(100 * Gesamtinfektionen[1] / Population[1], 2), 
-    NeueTote = New_deaths[1], ToteGesamt = GesamtTote[1],
-    Population = Population[1]), by = Country]
-setorder(topI, -Gesamtinfektionen)
-
-
-
-#######################
-### German RKI Data ###
-#######################
-
-# Read RKI Data
-RKI = fread(paste0("https://opendata.arcgis.com/datasets/",
-    "dd4580c810204019a7b8eb3e0b329dd6_0.csv"), encoding = "UTF-8", 
-    select = c("Meldedatum", "Bundesland", "IdLandkreis", "Landkreis", 
-        "AnzahlFall", "AnzahlTodesfall"))
-colnames(RKI)[1] = "Datum"
-RKI$Datum = as.Date(substring(RKI$Datum, 1, 10), "%Y/%m/%d")
-
-# Hotfix: Sum Berlin Data to one element as census data is not that detailed 
-RKI[Bundesland == "Berlin", 
-    c("IdLandkreis", "Landkreis") := .(11000, "SK Berlin")]
-
-# Simplify by grouping days
-RKI = RKI[,.(Neuinfektionen = sum(AnzahlFall), NeueTote = sum(AnzahlTodesfall)),
-    by = c("Datum", "Bundesland", "IdLandkreis", "Landkreis")]
-
-# Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
-info_LK = RKI[, .(Bundesland = Bundesland[1]), by = .(IdLandkreis, Landkreis)]
-all_vals_G = data.table(expand.grid(
-    Datum = seq(min(RKI$Datum), max(RKI$Datum), 1),
-    IdLandkreis = unique(RKI$IdLandkreis)))
-RKI = merge(all_vals_G, RKI[,c("Datum", "IdLandkreis", "Neuinfektionen", 
-    "NeueTote")], by = c("Datum", "IdLandkreis"), all = TRUE)
-RKI = merge(RKI, info_LK, by = "IdLandkreis")
-RKI[is.na(RKI)] = 0 
-
-
-
-# Read Census Data by Landkreis and remove RKI data without population info
-pop_RKI = fread("./www/pop_LK.csv", select = c("ID", "Insgesamt"),
-    col.names = c("IdLandkreis", "Population"))
-RKI = merge(RKI, pop_RKI, by = "IdLandkreis")
-
-# Insert Cumulative Cases and Deaths
-setorder(RKI, IdLandkreis, Datum)
-RKI[, c("Gesamtinfektionen", "GesamtTote") := .(cumsum(Neuinfektionen), 
-    cumsum(NeueTote)), by = IdLandkreis]
-
-# Add info of relative infections within last 7 days
-setorder(RKI, IdLandkreis, -Datum)
-RKI[, New7 := new7(Neuinfektionen), by = IdLandkreis]
-RKI[, New100k := round(1e5 * New7 / Population, 2)]
-
-
-# Pre-Compute German wide top lists per Bundesland 
-topBL = RKI[,.(New7 = sum(New7), Neuinfektionen = sum(Neuinfektionen), 
-    Gesamt = sum(Gesamtinfektionen), Population = sum(Population)), 
-    by = .(Bundesland, Datum)]
-topBL = topBL[,.(Spark = spk_chr(rev(round(1e5 * New7 / Population, 2))),
-    New100k = round(1e5 * New7[1] / Population[1], 2), 
-    Neuinfektionen = Neuinfektionen[1], Gesamt = Gesamt[1]), by = Bundesland]
-setorder(topBL, -New100k)
-
-
-# Pre-Compute German wide top lists per Landkreis 
-topLK = RKI[,.(Spark = spk_chr(rev(New100k)), New100k = New100k[1], 
-    Neuinfektionen = Neuinfektionen[1], Gesamt = Gesamtinfektionen[1], 
-    Bundesland = Bundesland[1]), by = Landkreis]
-setorder(topLK, -New100k)
-
-
-
-
-
-### Dashboard Programm Begins
 
 
 # Define UI for application that draws a histogram
@@ -215,29 +100,32 @@ ui = dashboardPage(
             hr(),
             
             fluidRow(
-                box(width = 8, height = 550, align = "center",
+                box(width = 8, align = "center",
                     title = "Grafik des zeitlichen Verlaufs", 
                     solidHeader = T, status = "primary",
-                    plotlyOutput("G_plot", height = 425, inline = T), 
+                    plotlyOutput("G_plot", height = 435, inline = T) %>% 
+                        withSpinner(color = "#3c8dbc"), 
                     radioButtons("G_plottype", inline = TRUE,
                         label = "Was soll dargestellt werden?",  
                         choices = c("7 Tage Inzidenz", 
                             "Neuinfektionen", "Gesamtinfektionen"))),
                 
-                box(width = 4, height = 550,
-                    title = "Tabelle des zeitliche Verlaufs", 
+                box(width = 4, title = "Tabelle des zeitliche Verlaufs", 
                     solidHeader = TRUE, status = "primary", 
-                    dataTableOutput("G_infobox"))
+                    dataTableOutput("G_infobox") %>% 
+                        withSpinner(color = "#3c8dbc"))
             ),
             
             fluidRow(
                 box(width = 5, title = "Spitzenreiter Bundesländer", 
                     solidHeader = T, status = "primary", 
-                    dataTableOutput("G_tabBL")),
+                    dataTableOutput("G_tabBL") %>% 
+                        withSpinner(color = "#3c8dbc")),
                 
                 box(width = 7, title = "Spitzenreiter Landkreise", 
                     solidHeader = T, status = "primary", 
-                    dataTableOutput("G_tabLK"))
+                    dataTableOutput("G_tabLK") %>% 
+                        withSpinner(color = "#3c8dbc"))
             ),
             
             
@@ -252,25 +140,27 @@ ui = dashboardPage(
                 hr(),
             
             fluidRow(
-                box(width = 8, height = 550, align = "center",
+                box(width = 8, align = "center",
                     title = "Grafik des zeitlichen Verlaufs", 
                     solidHeader = T, status = "primary",
-                    plotlyOutput("I_plot", height = 425, inline = T), 
+                    plotlyOutput("I_plot", height = 435, inline = T) %>% 
+                        withSpinner(color = "#3c8dbc"), 
                     radioButtons("I_plottype", inline = TRUE,
                         label = "Was soll dargestellt werden?",  
                         choices = c("7 Tage Inzidenz", 
                             "Neuinfektionen", "Gesamtinfektionen"))),
                 
-                box(width = 4, height = 550,
-                    title = "Tabelle des zeitliche Verlaufs", 
+                box(width = 4, title = "Tabelle des zeitliche Verlaufs", 
                     solidHeader = TRUE, status = "primary", 
-                    dataTableOutput("I_infobox"))
+                    dataTableOutput("I_infobox") %>% 
+                        withSpinner(color = "#3c8dbc"))
             ),
             
             fluidRow(
                 box(width = 12, title = "Länderübersicht", 
                     solidHeader = T, status = "primary", 
-                    dataTableOutput("I_tab"))
+                    dataTableOutput("I_tab") %>% 
+                        withSpinner(color = "#3c8dbc"))
             )
         )
     ))
@@ -281,9 +171,141 @@ ui = dashboardPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
     
-    ###########
-    # Germany #
-    ###########
+    ###### PREPROCESSING #######################################################
+    
+    ## DOWNLOAD DATA SETS
+    withProgress(message = "Datensätze werden aktualisiert ...", max = 2, 
+        detail = "Lade RKI Daten ...", {
+            # Read RKI Data
+            RKI = fread(paste0("https://opendata.arcgis.com/datasets/",
+                "dd4580c810204019a7b8eb3e0b329dd6_0.csv"), encoding = "UTF-8", 
+                select = c("Meldedatum", "Bundesland", "IdLandkreis", "Landkreis", 
+                    "AnzahlFall", "AnzahlTodesfall"))
+            incProgress(1, 
+                detail = "Lade WHO Daten ...")
+            # Read WHO Data
+            WHO = fread("https://covid19.who.int/WHO-COVID-19-global-data.csv", 
+                colClasses = c("Date", rep("character", 3), rep("integer", 4)), 
+                select = c("Date_reported", "Country", "New_cases", "New_deaths"))
+            incProgress(1)
+        })
+    
+    
+    ## PROCESS AND FORMAT DATA
+    withProgress(message = "Daten werden verarbeitet ...", max = 4,{
+        
+        ##############################
+        ### International WHO Data ###
+        ##############################
+        
+        colnames(WHO)[1] = "Datum"
+        
+        # Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
+        all_vals = data.table(expand.grid(
+            Datum = seq(min(WHO$Datum), max(WHO$Datum), 1),
+            Country = unique(WHO$Country)))
+        WHO = merge(all_vals, WHO, by = c("Datum", "Country"), all = TRUE)
+        WHO[is.na(WHO)] = 0
+        #WHO[is.na(New_cases) & Datum != max(Datum), New_cases := 0]
+        #WHO[is.na(New_deaths) & Datum != max(Datum), New_deaths := 0]
+        
+        # Read Census Data and remove WHO data without population info
+        pop_WHO = fread("./www/pop_WHO.csv")
+        pop_WHO$Population = 1000 * pop_WHO$Population # pop is given in 1000 precision
+        WHO = merge(WHO, pop_WHO, by = "Country")
+        
+        # Insert Cumulative Cases and Deaths
+        setorder(WHO, Country, Datum)
+        WHO[, c("Gesamtinfektionen", "GesamtTote") := .(cumsum(New_cases), 
+            cumsum(New_deaths)), by = Country]
+        
+        # Add info of relative infections within last 7 days
+        setorder(WHO, Country, -Datum)
+        WHO[, New7 := new7(New_cases), by = Country]
+        WHO[, New100k := round(1e5 * New7 / Population, 2)]
+        
+        incProgress(1)
+        
+        # Compute Overview table worldwide
+        topI = WHO[, .(Spark = spk_chr(rev(New100k)), New100k = New100k[1], 
+            Neuinfektionen = New_cases[1], Gesamtinfektionen = Gesamtinfektionen[1], 
+            Durchseuchung = round(100 * Gesamtinfektionen[1] / Population[1], 2), 
+            NeueTote = New_deaths[1], ToteGesamt = GesamtTote[1],
+            Population = Population[1]), by = Country]
+        setorder(topI, -Gesamtinfektionen)
+        
+        incProgress(1)
+        
+        #######################
+        ### German RKI Data ###
+        #######################
+        
+        
+        colnames(RKI)[1] = "Datum"
+        RKI$Datum = as.Date(substring(RKI$Datum, 1, 10), "%Y/%m/%d")
+        
+        # Hotfix: Sum Berlin Data to one element as census data is not that detailed 
+        RKI[Bundesland == "Berlin", 
+            c("IdLandkreis", "Landkreis") := .(11000, "SK Berlin")]
+        
+        # Simplify by grouping days
+        RKI = RKI[,.(Neuinfektionen = sum(AnzahlFall), NeueTote = sum(AnzahlTodesfall)),
+            by = c("Datum", "Bundesland", "IdLandkreis", "Landkreis")]
+        
+        # Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
+        info_LK = RKI[, .(Bundesland = Bundesland[1]), by = .(IdLandkreis, Landkreis)]
+        all_vals_G = data.table(expand.grid(
+            Datum = seq(min(RKI$Datum), max(RKI$Datum), 1),
+            IdLandkreis = unique(RKI$IdLandkreis)))
+        RKI = merge(all_vals_G, RKI[,c("Datum", "IdLandkreis", "Neuinfektionen", 
+            "NeueTote")], by = c("Datum", "IdLandkreis"), all = TRUE)
+        RKI = merge(RKI, info_LK, by = "IdLandkreis")
+        RKI[is.na(RKI)] = 0 
+        
+        
+        
+        # Read Census Data by Landkreis and remove RKI data without population info
+        pop_RKI = fread("./www/pop_LK.csv", select = c("ID", "Insgesamt"),
+            col.names = c("IdLandkreis", "Population"))
+        RKI = merge(RKI, pop_RKI, by = "IdLandkreis")
+        
+        # Insert Cumulative Cases and Deaths
+        setorder(RKI, IdLandkreis, Datum)
+        RKI[, c("Gesamtinfektionen", "GesamtTote") := .(cumsum(Neuinfektionen), 
+            cumsum(NeueTote)), by = IdLandkreis]
+        
+        # Add info of relative infections within last 7 days
+        setorder(RKI, IdLandkreis, -Datum)
+        RKI[, New7 := new7(Neuinfektionen), by = IdLandkreis]
+        RKI[, New100k := round(1e5 * New7 / Population, 2)]
+        
+        
+        # Pre-Compute German wide top lists per Bundesland 
+        topBL = RKI[,.(New7 = sum(New7), Neuinfektionen = sum(Neuinfektionen), 
+            Gesamt = sum(Gesamtinfektionen), Population = sum(Population)), 
+            by = .(Bundesland, Datum)]
+        topBL = topBL[,.(Spark = spk_chr(rev(round(1e5 * New7 / Population, 2))),
+            New100k = round(1e5 * New7[1] / Population[1], 2), 
+            Neuinfektionen = Neuinfektionen[1], Gesamt = Gesamt[1]), by = Bundesland]
+        setorder(topBL, -New100k)
+        
+        incProgress(1)
+        
+        # Pre-Compute German wide top lists per Landkreis 
+        topLK = RKI[,.(Spark = spk_chr(rev(New100k)), New100k = New100k[1], 
+            Neuinfektionen = Neuinfektionen[1], Gesamt = Gesamtinfektionen[1], 
+            Bundesland = Bundesland[1]), by = Landkreis]
+        setorder(topLK, -New100k)
+        
+        incProgress(1)
+        
+    })
+    
+    
+    
+    ###### SERVER SIDE FUNCTIONALITY ###########################################
+    
+    ## Germany 
     
     # top Landkreis list depends on selected Bundesland
     topLKx = reactive({
@@ -296,8 +318,6 @@ server <- function(input, output) {
     
     # The data subsetted to all selections
     dataG = reactive({
-        # create temporary data set of the user selection, named: tmp
-        
         s_LK = input$G_tabLK_rows_selected
         s_BL = input$G_tabBL_rows_selected
         # if an LK is selected, that goes first
@@ -320,11 +340,12 @@ server <- function(input, output) {
         rownames(tab) = format(tab$Datum, "%d.%m.%Y")
         today = rownames(tab)[2]
         
-        datatable(tab[,-1], selection = 'none', options = list(pageLength = 10,
-            dom = "tp"), colnames = c(" ",
-                "7 Tage Inzidenz", "Neuinfektionen", "Gesamt")) %>% 
+        datatable(tab[,-1], selection = 'none', options = list(pageLength = 12,
+                autoWidth = FALSE, scrollX = TRUE, dom = "tp"), 
+            colnames = c(" ", "7 Tage Inzidenz", "Neue Fälle", 
+                "Gesamt")) %>% 
             formatStyle(" ", target = "row", 
-                fontSize = styleInterval(today, c("100%", "150%")), 
+                fontSize = styleInterval(today, c("90%", "100%")), 
                 backgroundColor = styleInterval(today, c("white", "#ddddff")), 
                 fontWeight = styleInterval(today, c("normal", "bold"))) %>%
             formatStyle(" ", fontWeight = "bold") %>%
@@ -354,8 +375,8 @@ server <- function(input, output) {
             "Neuinfektionen" = {
                 plt = ggplot(pltdat, aes(x = Datum, y = Neuinfektionen)) +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc") +
-                    scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
+                    scale_x_date(date_labels = "%d.%m", expand = c(0,0), 
+                        date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen", 
                         title = paste("Daten für", title)) +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
@@ -367,8 +388,12 @@ server <- function(input, output) {
                         axis.text.y = element_text(angle = 90, hjust = 0.5))
             },
             
+            
+            
+            
             "7 Tage Inzidenz" = {
-                dpl_G = data.frame(x = rep(rep(range(pltdat$Datum), each = 2), 5), 
+                dpl_G = data.frame(x = rep(rep(range(pltdat$Datum) + c(-20, 20), 
+                    each = 2), 5), 
                     y = c(0, 10, 10, 0, 10, 20, 20, 10, 20, 35, 35, 20, 35, 
                         50, 50, 35, 50, 1000, 1000, 50),
                     Wert = rep(c("< 10", "< 20", "< 35", "< 50", 
@@ -382,9 +407,10 @@ server <- function(input, output) {
                     scale_fill_manual(values = c("#FFFFE0", "#F0E68C", 
                         "#FFC500", "#FF8000", "#FF0000")) + 
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
-                    coord_cartesian(ylim = c(0, max(pltdat$New100k))) +
-                    labs(y = "7 Tage Inzidenz", 
+                        date_breaks = "17 day") +
+                    coord_cartesian(ylim = c(0, max(pltdat$New100k)),
+                        xlim = range(pltdat$Datum)) +
+                    labs(y = "7 Tage Inzidenz",
                         title = paste("Daten für", title)) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1), legend.position = "none",
@@ -395,8 +421,8 @@ server <- function(input, output) {
                 plt = ggplot(pltdat, aes(x = Datum, y = Gesamtinfektionen)) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
                     geom_line(col = "blue4") +
-                    scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
+                    scale_x_date(date_labels = "%d.%m", expand = c(0,0), 
+                        date_breaks = "17 day") +
                     labs(y = "Infektionen Gesamt", 
                         title = paste("Daten für", title)) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
@@ -406,17 +432,18 @@ server <- function(input, output) {
             }
         )
         
-        ggplotly(plt)
+        ggplotly(plt, tooltip = c("y", "x"))
     })
    
     # The table of ranking by Bundesland
     output$G_tabBL = renderDataTable({
         datatable(topBL, escape = F, selection = 'single', 
-            options = list(pageLength = 16, dom = "t", 
+            options = list(pageLength = 16, dom = "t", fontSize = "80%",
+                autoWidth = FALSE, scrollX = TRUE,
                 order = list(list(3, 'desc')), fnDrawCallback = 
                 htmlwidgets::JS("function(){HTMLWidgets.staticRender();}")), 
             colnames = c("Bundesland", "", "7 Tage Inzidenz", 
-                "Neuinfektionen", "Gesamt")) %>% 
+                "Neue Fälle", "Gesamt")) %>% 
             formatStyle("New100k", fontWeight = "bold", 
                 backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
                     "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
@@ -432,10 +459,11 @@ server <- function(input, output) {
     output$G_tabLK = renderDataTable({
         datatable(topLKx(), escape = F, selection = 'single', 
             options = list(pageLength = 50, dom = "ltip", 
+                autoWidth = FALSE, scrollX = TRUE,
                 order = list(list(3, 'desc')), fnDrawCallback = 
                     htmlwidgets::JS("function(){HTMLWidgets.staticRender();}")), 
             colnames = c("Landkreis", "", "7 Tage Inzidenz", 
-                "Neuinfektionen", "Gesamt", "Bundesland")) %>%  
+                "Neue Fälle", "Gesamt", "Bundesland")) %>%  
             formatStyle("New100k", fontWeight = "bold", 
                 backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
                     "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
@@ -448,16 +476,11 @@ server <- function(input, output) {
     })
     
     
-    
-    #################
-    # International #
-    #################
+    ## International
     
     # The data subsetted to the selected country
     dataI = reactive({
-        
         s_C = input$I_tab_rows_selected
-        
         if (length(s_C)) {
             tmp = WHO[Country == topI$Country[s_C]] 
         } else tmp = WHO
@@ -477,11 +500,11 @@ server <- function(input, output) {
         rownames(tab) = format(tab$Datum, "%d.%m.%Y")
         today = rownames(tab)[2]
         
-        datatable(tab[,-1], selection = 'none', options = list(pageLength = 10,
-            dom = "tp"), colnames = c(" ","7 Tage Inzidenz", 
-                "Neuinfektionen", "Gesamt")) %>% 
+        datatable(tab[,-1], selection = 'none', options = list(pageLength = 12,
+                autoWidth = FALSE, scrollX = TRUE, dom = "tp"), 
+            colnames = c(" ", "7 Tage Inzidenz", "Neue Fälle", "Gesamt")) %>% 
             formatStyle(" ", target = "row", 
-                fontSize = styleInterval(today, c("100%", "150%")), 
+                fontSize = styleInterval(today, c("90%", "100%")), 
                 backgroundColor = styleInterval(today, c("white", "#ddddff")), 
                 fontWeight = styleInterval(today, c("normal", "bold"))) %>%
             formatStyle(" ", fontWeight = "bold") %>%
@@ -507,12 +530,13 @@ server <- function(input, output) {
                 pltI = ggplot(pltdatI, aes(x = Datum, y = Neuinfektionen)) +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc") +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
+                        date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen", 
                         title = paste("Daten für", title_I)) +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = input$I_span, color = "blue4") + 
-                    coord_cartesian(ylim = c(0, max(pltdatI$Neuinfektionen))) +
+                    coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
+                        xlim = range(pltdatI$Datum)) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
                         axis.title.x = element_blank(),
@@ -520,7 +544,8 @@ server <- function(input, output) {
             },
             "7 Tage Inzidenz" = {
                 # Make polygon for background color
-                dpl = data.frame(x = rep(rep(range(pltdatI$Datum), each = 2), 5), 
+                dpl = data.frame(x = rep(rep(range(pltdatI$Datum) + c(-20, 20), 
+                    each = 2), 5), 
                     y = c(0, 10, 10, 0, 10, 20, 20, 10, 20, 35, 35, 20, 35, 
                         50, 50, 35, 50, 1000, 1000, 50),
                     Wert = rep(c("< 10", "< 20", "< 35", "< 50", 
@@ -535,7 +560,7 @@ server <- function(input, output) {
                         "#FFC500", "#FF8000", "#FF0000")) + 
                     coord_cartesian(ylim = c(0, max(pltdatI$New100k))) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
+                        date_breaks = "17 day") +
                     labs(y = "7 Tage Inzidenz", 
                         title = paste("Daten für", title_I)) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
@@ -548,7 +573,7 @@ server <- function(input, output) {
                     geom_area(stat = "identity", fill = "#3c8dbc") +
                     geom_line(col = "blue4") +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "10 day") +
+                        date_breaks = "17 day") +
                     labs(y = "Infektionen Gesamt", 
                         title = paste("Daten für", title_I)) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
@@ -565,10 +590,11 @@ server <- function(input, output) {
     output$I_tab = renderDataTable({
         datatable(topI, escape = F, selection = 'single', 
             options = list(pageLength = 200, dom = "t", 
+                autoWidth = FALSE, scrollX = TRUE,
                 order = list(list(5, 'desc')), fnDrawCallback = 
                 htmlwidgets::JS("function(){HTMLWidgets.staticRender();}")), 
             colnames = c("Land", "", "7 Tage Inzidenz", 
-                "Neuinfektionen", "Infektionen Gesamt", "Durchseuchung", 
+                "Neue Fälle", "Fälle Gesamt", "Durchseuchung", 
                 "Neue Tote", "Tote Gesamt", "Einwohner")) %>% 
             formatStyle("New100k", fontWeight = "bold", 
                 backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
@@ -588,8 +614,6 @@ server <- function(input, output) {
                 digits = 2) %>%
             spk_add_deps()
     })
-    
-    
 }
 
 
