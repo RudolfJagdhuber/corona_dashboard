@@ -369,13 +369,13 @@ server <- function(input, output) {
         s_BL = input$G_tabBL_rows_selected
         title = ifelse(length(s_LK), topLKx()$Landkreis[s_LK],
             ifelse(length(s_BL), topBL$Bundesland[s_BL], "ganz Deutschland"))
-        
+        today = max(pltdat$Datum)
         
         switch(input$G_plottype,
             "Neuinfektionen" = {
                 plt = ggplot(pltdat, aes(x = Datum, y = Neuinfektionen)) +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc") +
-                    scale_x_date(date_labels = "%d.%m", expand = c(0,0), 
+                    scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen", 
                         title = paste("Daten für", title)) +
@@ -403,7 +403,9 @@ server <- function(input, output) {
                     geom_polygon(data = dpl_G, aes(x = x, y = y, fill = Wert),
                         alpha = 0.7) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
-                    geom_line(col = "blue4") +
+                    geom_line(col = "blue4") + 
+                    annotate("point", x = today, col = "blue4", size = 1,
+                        y = pltdat[Datum == today]$New100k) +
                     scale_fill_manual(values = c("#FFFFE0", "#F0E68C", 
                         "#FFC500", "#FF8000", "#FF0000")) + 
                     scale_x_date(date_labels = "%d.%m", 
@@ -421,7 +423,9 @@ server <- function(input, output) {
                 plt = ggplot(pltdat, aes(x = Datum, y = Gesamtinfektionen)) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
                     geom_line(col = "blue4") +
-                    scale_x_date(date_labels = "%d.%m", expand = c(0,0), 
+                    annotate("point", x = today, col = "blue4", size = 1,
+                        y = pltdat[Datum == today]$Gesamtinfektionen) +
+                    scale_x_date(date_labels = "%d.%m",
                         date_breaks = "17 day") +
                     labs(y = "Infektionen Gesamt", 
                         title = paste("Daten für", title)) +
@@ -524,6 +528,7 @@ server <- function(input, output) {
         # Construct the plot title
         s_C = input$I_tab_rows_selected
         title_I = ifelse(length(s_C), topI$Country[s_C], "alle Länder der Welt")
+        today = max(pltdatI$Datum)
         
         switch(input$I_plottype,
             "Neuinfektionen" = {
@@ -535,8 +540,7 @@ server <- function(input, output) {
                         title = paste("Daten für", title_I)) +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = input$I_span, color = "blue4") + 
-                    coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
-                        xlim = range(pltdatI$Datum)) +
+                    coord_cartesian(ylim = c(0, max(pltdatI$Neuinfektionen))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
                         axis.title.x = element_blank(),
@@ -556,9 +560,12 @@ server <- function(input, output) {
                         alpha = 0.7) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
                     geom_line(col = "blue4") +
+                    annotate("point", x = today, col = "blue4", size = 1,
+                        y = pltdatI[Datum == today]$New100k) +
                     scale_fill_manual(values = c("#FFFFE0", "#F0E68C", 
                         "#FFC500", "#FF8000", "#FF0000")) + 
-                    coord_cartesian(ylim = c(0, max(pltdatI$New100k))) +
+                    coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
+                        xlim = range(pltdatI$Datum)) +
                     scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     labs(y = "7 Tage Inzidenz", 
@@ -572,6 +579,8 @@ server <- function(input, output) {
                 pltI = ggplot(pltdatI, aes(x = Datum, y = Gesamtinfektionen)) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
                     geom_line(col = "blue4") +
+                    annotate("point", x = today, col = "blue4", size = 1,
+                        y = pltdatI[Datum == today]$Gesamtinfektionen) +
                     scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     labs(y = "Infektionen Gesamt", 
