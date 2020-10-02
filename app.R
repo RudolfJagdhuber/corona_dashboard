@@ -381,16 +381,16 @@ server <- function(input, output, session) {
     output$G_infobox = renderDataTable({
         tab = data.frame(dataG())
         rownames(tab) = format(tab$Datum, "%d.%m.%Y")
-        today = rownames(tab)[2]
+        today = rownames(tab)[1]
         
         datatable(tab[,-1], selection = 'none', options = list(pageLength = 12,
                 autoWidth = FALSE, scrollX = TRUE, dom = "tp"), 
             colnames = c(" ", "7 Tage Inzidenz", "Neue Fälle", 
                 "Gesamt")) %>% 
             formatStyle(" ", target = "row", 
-                fontSize = styleInterval(today, c("90%", "100%")), 
-                backgroundColor = styleInterval(today, c("white", "#ddddff")), 
-                fontWeight = styleInterval(today, c("normal", "bold"))) %>%
+                fontSize = styleEqual(today, "100%", "90%"), 
+                backgroundColor = styleEqual(today, "#ddddff", "white"), 
+                fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
                 backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
@@ -545,15 +545,15 @@ server <- function(input, output, session) {
     output$I_infobox = renderDataTable({
         tab = data.frame(dataI())
         rownames(tab) = format(tab$Datum, "%d.%m.%Y")
-        today = rownames(tab)[2]
+        today = rownames(tab)[1]
         
         datatable(tab[,-1], selection = 'none', options = list(pageLength = 12,
                 autoWidth = FALSE, scrollX = TRUE, dom = "tp"), 
             colnames = c(" ", "7 Tage Inzidenz", "Neue Fälle", "Gesamt")) %>% 
             formatStyle(" ", target = "row", 
-                fontSize = styleInterval(today, c("90%", "100%")), 
-                backgroundColor = styleInterval(today, c("white", "#ddddff")), 
-                fontWeight = styleInterval(today, c("normal", "bold"))) %>%
+                fontSize = styleEqual(today, "100%", "90%"), 
+                backgroundColor = styleEqual(today, "#ddddff", "white"), 
+                fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
                 backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
