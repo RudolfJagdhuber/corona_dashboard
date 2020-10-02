@@ -8,7 +8,7 @@ library(sparkline)
 library(DT)
 
 
-update_data = function(doSave = FALSE) {
+update_data = function() {
     
     # function to compute vector of summed infections for last n days
     # ni = New infections vector sorted by date (newest first!)
@@ -150,16 +150,12 @@ update_data = function(doSave = FALSE) {
             topI = topI, date_updated = Sys.Date(),
             time_updated = format(Sys.time(), "%H:%M Uhr"))
         
-        if (doSave) saveRDS(D, file = paste0("./www/data_", format(Sys.time(), 
-            "%Y-%m-%d-%H-%M"), ".rds"))
+        saveRDS(D, file = "./www/data.rds")
         
     })
     
     return(D)
 }
-
-
-
 
 
 # Define UI for application that draws a histogram
@@ -258,7 +254,6 @@ ui = dashboardPage(
                         label = "Was soll dargestellt werden?",  
                         choices = c("7 Tage Inzidenz", 
                             "Neuinfektionen", "Gesamtinfektionen"))),
-                
                 box(width = 4, align = "center", height = 650, 
                     title = "Tabelle des zeitliche Verlaufs", 
                     solidHeader = TRUE, status = "primary", 
@@ -272,15 +267,11 @@ ui = dashboardPage(
                     solidHeader = T, status = "primary", 
                     dataTableOutput("G_tabBL") %>% 
                         withSpinner(color = "#3c8dbc")),
-                
                 box(width = 7, title = "Spitzenreiter Landkreise", 
                     solidHeader = T, status = "primary", 
                     dataTableOutput("G_tabLK") %>% 
                         withSpinner(color = "#3c8dbc"))
             ),
-            
-            
-            
         ),
         
         tabItem(tabName = "inter", 
@@ -300,7 +291,6 @@ ui = dashboardPage(
                         label = "Was soll dargestellt werden?",  
                         choices = c("7 Tage Inzidenz", 
                             "Neuinfektionen", "Gesamtinfektionen"))),
-                
                 box(width = 4, align = "center", height = 650, 
                     title = "Tabelle des zeitliche Verlaufs", 
                     solidHeader = TRUE, status = "primary",
@@ -319,26 +309,23 @@ ui = dashboardPage(
     ))
 )
     
- 
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
     
     
     ###### DATA STATUS #########################################################
+
+    # Read the currently stored data filed
+    D = readRDS("./www/data.rds")
     
-    # Read most recent available data file
-    file = sort(list.files("./www/", pattern = "data.*", full.names = T), 
-        decreasing = TRUE)[1]
+    # If the data is older than a day, update it
+    if (D$date_updated - Sys.Date() != 0) D = update_data()
     
-    # Get the current timestamp from the filename
-    file_date = as.Date(substring(file, nchar(file) - 19, nchar(file) - 10))
-    
-    # If the data is older than a day, get the newest
-    if (file_date - Sys.Date() != 0) D = update_data() else D = readRDS(file)
-    
+    # Make it reactive to identify changes when user presses update button
     Dat = reactiveVal(D)
     
+    # Functionality for the update button
     observeEvent(input$dataUpdate, {
         Dat(update_data())
     })
@@ -346,6 +333,8 @@ server <- function(input, output, session) {
 
     
     ###### SERVER SIDE FUNCTIONALITY ###########################################
+    
+    ## The current file date is displayed at multiple places
     
     output$reloadDate = renderText(paste(format(Dat()$date_updated, "%d.%m.%Y"), 
         Dat()$time_updated))
@@ -358,7 +347,8 @@ server <- function(input, output, session) {
         "Daten der World-Health-Organization (Stand: ", 
         format(Dat()$date_updated, "%d.%m.%Y "), Dat()$time_updated, ")"))
     
-    ## Germany 
+    
+    ## Germany Section
     
     # top Landkreis list depends on selected Bundesland
     topLKx = reactive({
@@ -420,7 +410,6 @@ server <- function(input, output, session) {
             ifelse(length(s_BL) == 1, Dat()$topBL$Bundesland[s_BL], 
                 "ganz Deutschland")))
     })
-    
     
     # The main plot of the selected data
     output$G_plot = renderPlotly({
@@ -533,7 +522,7 @@ server <- function(input, output, session) {
     })
     
     
-    ## International
+    ## International Section
 
     # The data subsetted to the selected country
     dataI = reactive({
@@ -686,6 +675,3 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-
-
