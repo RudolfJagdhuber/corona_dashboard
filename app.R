@@ -81,7 +81,7 @@ update_data = function() {
             Durchseuchung = round(100 * Gesamtinfektionen[1] / Population[1], 2),
             NeueTote = New_deaths[1], ToteGesamt = GesamtTote[1],
             Population = Population[1]), by = Country]
-        setorder(topI, -Gesamtinfektionen)
+        setorder(topI, -New100k)
         
         incProgress(1)
         
@@ -646,7 +646,7 @@ server <- function(input, output, session) {
         datatable(Dat()$topI, escape = F, selection = 'single',
             options = list(pageLength = 200, dom = "t",
                 autoWidth = FALSE, scrollX = TRUE,
-                order = list(list(5, 'desc')), fnDrawCallback =
+                order = list(list(3, 'desc')), fnDrawCallback =
                 htmlwidgets::JS("function(){HTMLWidgets.staticRender();}")),
             colnames = c("Land", "", "7 Tage Inzidenz",
                 "Neue Fälle", "Fälle Gesamt", "Durchseuchung",
