@@ -5,9 +5,9 @@ account: jagdhuber
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2911084
-bundleId: 3694845
+bundleId: 3694864
 url: https://jagdhuber.shinyapps.io/Corona_Dashboard/
-when: 1601634785.42267
+when: 1601635304.49327
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: README.md

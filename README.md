@@ -1,9 +1,16 @@
-# An Incidence based Corona Dashboard
+# A 7-Day-Incidence based Corona Dashboard
 
-Data on daily infections or total infections can be found at many places over the internet. However, these measures have many practical downsides. 
+Data on daily infections or total infections can be found at many places over 
+the internet. However, these measures have many practical downsides. 
 
-An alternative and more sophisticated measure is the 7 day incidence, which computes as the sum of all infections in the last seven days per 100k population.
+An alternative and more sophisticated measure is the 7-day-incidence, which 
+computes as the sum of all infections in the last seven days per 100k 
+population.
 
-This dashboard focusses on this statistic and presents data from the RKI and WHO.
+This dashboard focusses on this statistic and presents data from the RKI and 
+WHO.
+
+Official limits for actions to be taken are highlighted according to the corona
+traffic light scheme.
 
 https://jagdhuber.shinyapps.io/Corona_Dashboard/

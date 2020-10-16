@@ -176,7 +176,7 @@ ui = dashboardPage(
     dashboardBody(tabItems(
         
         tabItem(tabName = "AB", # About section
-            h1("Corona Übersicht der Inzidenz"),
+            h1("Corona Übersicht der 7-Tage-Inzidenz"),
             h2("Noch eine Corona Übersicht?"),
             p(class = "lead", "Neuinfektionen oder Gesamtinfektionen lassen",
                 "sich auf vielen Seiten im Internet finden. Diese Maßzahlen",
@@ -186,22 +186,22 @@ ui = dashboardPage(
                 "abhängig von der Bevölkerungsmenge in ihrer Interpretation.",
                 "In Deutschland findet man deshalb vermehrt eine",
                 "andere und deutlich aussagekräftigere Maßzahl:"), 
-            p(class = "lead", strong(">> Anzahl Neuinfektionen der letzten 7 Tage",
-                    "pro 100,000 Einwohner <<")), 
+            p(class = "lead", strong(">> Anzahl Neuinfektionen der letzten 7",
+                    "Tage pro 100,000 Einwohner <<")), 
             p(class = "lead", "Meine Corona Übersicht legt den",
-                "Fokus auf diese Zahl und erlaubt somit eine bessere",
+                "Fokus komplett auf diese Zahl und erlaubt somit eine bessere",
                 "Einschätzung des Weltgeschehens.",
-                "Diese Zahl, welche in Folgenden Tabellen und Grafiken als", 
-                strong("7-Tage-Inzidenz"), "bezeichnet wird, ist die",
-                "Grundlage für Maßnahmen in Deutschland. Dabei gelten",
-                "folgende Grenzwerte:"),
-            p(class = "lead", strong("7-Tage-Inzidenz > 50 (Warnwert)"), br(), 
-                "Lockerungen müssen rückgangig gemacht werden.",
-                "Beschränkungskonzepte treten in Kraft"),
-            p(class = "lead", strong("7-Tage-Inzidenz > 35 (Frühwarnwert)"), 
-                br(), "Das Gesundheitsministerium muss informiert werden,",
-                "Ursachen müssen geklärt werden und lokale Gegenmaßnahmen sind",
-                "ggf. einzuleiten"),
+                "Sie ist die Grundlage für Maßnahmen in Deutschland. Für",
+                "Bayern gelten aktuell folgende Grenzwerte:"),
+            column(width = 12, img(style = 
+                    'height: 100%; width: 100%; object-fit: cover', 
+                src = "corona_ampel.jpg"),
+                "Quelle:", a(href =
+                    "https://twitter.com/BayStMI/status/1316721063548588040/",
+                    "https://twitter.com/BayStMI/status/1316721063548588040/")),
+            br(), ".", br(),
+            p(class = "lead", "Alle Inzidenzen (auch die weltweiten Zahlen)", 
+                "sind nach diesen Grenzwerten eingefärbt."),
             h2("Bedienung"),
             p(class = "lead", "Im Menü auf der linken Seite lassen sich eine",
                 "deutschlandweite, sowie eine weltweite Übersicht auswählen."),
@@ -215,9 +215,9 @@ ui = dashboardPage(
                 "zur Auswahl, welche unterhalb der Grafik gewählt werden",
                 "können."),
             h2("Datengrundlage"),
-            p(class = "lead", "Die deutschlandweite Übersicht basiert auf Daten des",
-                "Robert-Koch-Instituts. Die weltweite Übersicht nutzt",
-                "offizielle Daten der World-Health-Organization. Alle",
+            p(class = "lead", "Die deutschlandweite Übersicht basiert auf",
+                "Daten des Robert-Koch-Instituts. Die weltweite Übersicht",
+                "nutzt offizielle Daten der World-Health-Organization. Alle",
                 "Datensätze werden täglich abgerufen und aufbereitet, sodass",
                 "dargestellte Ergebnisse dem neuesten Stand entsprechen."),
             p(class = "lead", "Der aktuelle Stand ist :",
@@ -393,8 +393,8 @@ server <- function(input, output, session) {
                 fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
-                    "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
+                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
+                    "#fce034", "#f14a26"))) %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
             formatCurrency("Neuinfektionen", currency = "+", interval = 3, 
@@ -435,11 +435,9 @@ server <- function(input, output, session) {
             },
             "7 Tage Inzidenz" = {
                 dpl_G = data.frame(x = rep(rep(range(pltdat$Datum) + c(-20, 20), 
-                    each = 2), 5), 
-                    y = c(0, 10, 10, 0, 10, 20, 20, 10, 20, 35, 35, 20, 35, 
-                        50, 50, 35, 50, 1000, 1000, 50),
-                    Wert = rep(c("< 10", "< 20", "< 35", "< 50", 
-                        "> 50"), each = 4))
+                    each = 2), 3), 
+                    y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 10000, 10000, 50),
+                    Wert = rep(c("< 35", "35 - 50", "> 50"), each = 4))
                 
                 plt = ggplot(pltdat, aes(x = Datum, y = New100k)) +
                     geom_polygon(data = dpl_G, aes(x = x, y = y, fill = Wert),
@@ -448,8 +446,8 @@ server <- function(input, output, session) {
                     geom_line(col = "blue4") + 
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdat[Datum == today]$New100k) +
-                    scale_fill_manual(values = c("#FFFFE0", "#F0E68C", 
-                        "#FFC500", "#FF8000", "#FF0000")) + 
+                    scale_fill_manual(values = c("#62de4a", "#f14a26", 
+                        "#fce034")) + 
                     scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     coord_cartesian(ylim = c(0, max(pltdat$New100k)),
@@ -491,8 +489,8 @@ server <- function(input, output, session) {
             colnames = c("Bundesland", "", "7 Tage Inzidenz", 
                 "Neue Fälle", "Gesamt")) %>% 
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
-                    "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
+                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
+                    "#fce034", "#f14a26"))) %>%
             formatStyle("Bundesland", fontWeight = "bold") %>% 
             formatCurrency("Gesamt", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
@@ -511,8 +509,8 @@ server <- function(input, output, session) {
             colnames = c("Landkreis", "", "7 Tage Inzidenz", 
                 "Neue Fälle", "Gesamt", "Bundesland")) %>%  
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
-                    "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
+                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
+                    "#fce034", "#f14a26"))) %>%
             formatStyle("Landkreis", fontWeight = "bold") %>% 
             formatCurrency("Gesamt", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
@@ -556,8 +554,8 @@ server <- function(input, output, session) {
                 fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0", 
-                    "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
+                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
+                    "#fce034", "#f14a26"))) %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
             formatCurrency("Neuinfektionen", currency = "+", interval = 3, 
@@ -584,7 +582,7 @@ server <- function(input, output, session) {
                         date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
-                        span = input$I_span, color = "blue4") + 
+                        span = 0.125, color = "blue4") + 
                     coord_cartesian(ylim = c(0, max(pltdatI$Neuinfektionen))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
@@ -595,11 +593,9 @@ server <- function(input, output, session) {
             "7 Tage Inzidenz" = {
                 # Make polygon for background color
                 dpl = data.frame(x = rep(rep(range(pltdatI$Datum) + c(-20, 20), 
-                    each = 2), 5), 
-                    y = c(0, 10, 10, 0, 10, 20, 20, 10, 20, 35, 35, 20, 35, 
-                        50, 50, 35, 50, 1000, 1000, 50),
-                    Wert = rep(c("< 10", "< 20", "< 35", "< 50", 
-                        "> 50"), each = 4))
+                    each = 2), 3), 
+                    y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 10000, 10000, 50),
+                    Wert = rep(c("< 35", "35 - 50", "> 50"), each = 4))
                 
                 pltI = ggplot(pltdatI, aes(x = Datum, y = New100k)) +
                     geom_polygon(data = dpl, aes(x = x, y = y, fill = Wert),
@@ -608,8 +604,8 @@ server <- function(input, output, session) {
                     geom_line(col = "blue4") +
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdatI[Datum == today]$New100k) +
-                    scale_fill_manual(values = c("#FFFFE0", "#F0E68C", 
-                        "#FFC500", "#FF8000", "#FF0000")) + 
+                    scale_fill_manual(values = c("#62de4a", "#f14a26", 
+                        "#fce034")) + 
                     coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
                         xlim = range(pltdatI$Datum)) +
                     scale_x_date(date_labels = "%d.%m", 
@@ -651,9 +647,9 @@ server <- function(input, output, session) {
             colnames = c("Land", "", "7 Tage Inzidenz",
                 "Neue Fälle", "Fälle Gesamt", "Durchseuchung",
                 "Neue Tote", "Tote Gesamt", "Einwohner")) %>%
-            formatStyle("New100k", fontWeight = "bold",
-                backgroundColor = styleInterval(c(10, 20, 35, 50), c("#FFFFE0",
-                    "#F0E68C", "#FFC500", "#FF8000", "#FF0000"))) %>%
+            formatStyle("New100k", fontWeight = "bold", 
+                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
+                    "#fce034", "#f14a26"))) %>%
             formatStyle("Country", fontWeight = "bold") %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3,
                 mark = ",", digits = 0) %>%
