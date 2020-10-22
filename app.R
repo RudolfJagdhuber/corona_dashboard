@@ -3,7 +3,6 @@ library(shinydashboard)
 library(shinycssloaders)
 library(data.table)
 library(ggplot2);theme_set(theme_bw())
-library(plotly)
 library(sparkline)
 library(DT)
 
@@ -49,7 +48,7 @@ update_data = function() {
         
         colnames(WHO)[1] = "Datum"
         
-        # Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
+        # Important: INSERT MISSING DATES WITH 0 (For 7day value consistency)
         all_vals = data.table(expand.grid(
             Datum = seq(min(WHO$Datum), max(WHO$Datum), 1),
             Country = unique(WHO$Country)))
@@ -60,7 +59,7 @@ update_data = function() {
         
         # Read Census Data and remove WHO data without population info
         pop_WHO = fread("./www/pop_WHO.csv")
-        pop_WHO$Population = 1000 * pop_WHO$Population # pop is given in 1000 precision
+        pop_WHO$Population = 1000 * pop_WHO$Population # pop is in 1k precision
         WHO = merge(WHO, pop_WHO, by = "Country")
         
         # Insert Cumulative Cases and Deaths
@@ -89,7 +88,6 @@ update_data = function() {
         ### German RKI Data ###
         #######################
         
-        
         colnames(RKI)[1] = "Datum"
         RKI$Datum = as.Date(substring(RKI$Datum, 1, 10), "%Y/%m/%d")
         
@@ -101,14 +99,15 @@ update_data = function() {
         RKI = RKI[,.(Neuinfektionen = sum(AnzahlFall), NeueTote = sum(AnzahlTodesfall)),
             by = c("Datum", "Bundesland", "IdLandkreis", "Landkreis")]
         
-        # Important: INSERT MISSING DATES WITH ZERO CASES (For 7day value consistency)
-        info_LK = RKI[, .(Bundesland = Bundesland[1]), by = .(IdLandkreis, Landkreis)]
+        # Important: INSERT MISSING DATES WITH 0 (For 7day value consistency)
+        info_LK = RKI[, .(Bundesland = Bundesland[1]), 
+            by = .(IdLandkreis, Landkreis)]
         all_vals_G = data.table(expand.grid(
             Datum = seq(min(RKI$Datum), max(RKI$Datum), 1),
             IdLandkreis = unique(RKI$IdLandkreis)))
         RKI = merge(all_vals_G, RKI[,c("Datum", "IdLandkreis", "Neuinfektionen",
             "NeueTote")], by = c("Datum", "IdLandkreis"), all = TRUE)
-        RKI = merge(RKI, info_LK, by = "IdLandkreis")
+        RKI = merge(RKI, info_LK, by = "IdLandkreis", allow.cartesian = TRUE)
         RKI[is.na(RKI)] = 0
         
         # Read Census Data by Landkreis and remove RKI data without population info
@@ -176,6 +175,10 @@ ui = dashboardPage(
     dashboardBody(tabItems(
         
         tabItem(tabName = "AB", # About section
+            p(class = "lead", "Hinweis: Die offiziellen RKI Daten sind oft", 
+                "fehlerhaft und unvollständig. Dafür kann ich nichts. Ich",
+                "nutze nur die offizielle Quelle und visualisiere das",
+                "Ergebnis."),
             h1("Corona Übersicht der 7-Tage-Inzidenz"),
             h2("Noch eine Corona Übersicht?"),
             p(class = "lead", "Neuinfektionen oder Gesamtinfektionen lassen",
@@ -196,9 +199,10 @@ ui = dashboardPage(
             column(width = 12, img(style = 
                     'height: 100%; width: 100%; object-fit: cover', 
                 src = "corona_ampel.jpg"),
-                "Quelle:", a(href =
-                    "https://twitter.com/BayStMI/status/1316721063548588040/",
-                    "https://twitter.com/BayStMI/status/1316721063548588040/")),
+                "Quelle:", a(href = paste0("https://www.radioarabella.de/",
+                    "arabella-aktuell/regierungserklaeurung-soeder-bayern/"),
+                    paste0("https://www.radioarabella.de/arabella-aktuell/",
+                        "regierungserklaeurung-soeder-bayern/"))),
             br(), ".", br(),
             p(class = "lead", "Alle Inzidenzen (auch die weltweiten Zahlen)", 
                 "sind nach diesen Grenzwerten eingefärbt."),
@@ -209,11 +213,8 @@ ui = dashboardPage(
                 "Klick auf den Spaltennamen neu sortieren. Wird eine Zeile",
                 "angeklickt, so zeigen alle Grafiken und Übersichten speziell",
                 "die Daten dieser Auswahl."),
-            p(class = "lead", strong("Grafiken"), "sind interaktiv durch",
-                tags$em("plotly."), "Dies ermöglicht aktives verschieben,",
-                "zoomen, speichern, und vieles mehr. Es stehen drei Zielgrößen",
-                "zur Auswahl, welche unterhalb der Grafik gewählt werden",
-                "können."),
+            p(class = "lead", "3", strong("Grafiken"), "stehen zur Auswahl.",
+                "Die Zielgrösse kann unterhalb der Grafik gewählt werden."),
             h2("Datengrundlage"),
             p(class = "lead", "Die deutschlandweite Übersicht basiert auf",
                 "Daten des Robert-Koch-Instituts. Die weltweite Übersicht",
@@ -248,7 +249,7 @@ ui = dashboardPage(
                     title = "Grafik des zeitlichen Verlaufs", 
                     solidHeader = T, status = "primary",
                     textOutput("G_header", container = h4), 
-                    plotlyOutput("G_plot", height = 460, inline = T) %>% 
+                    plotOutput("G_plot", height = 460) %>% 
                         withSpinner(color = "#3c8dbc"), 
                     radioButtons("G_plottype", inline = TRUE,
                         label = "Was soll dargestellt werden?",  
@@ -285,7 +286,7 @@ ui = dashboardPage(
                     title = "Grafik des zeitlichen Verlaufs", 
                     solidHeader = T, status = "primary",
                     textOutput("I_header", container = h4),
-                    plotlyOutput("I_plot", height = 460, inline = T) %>% 
+                    plotOutput("I_plot", height = 460) %>% 
                         withSpinner(color = "#3c8dbc"), 
                     radioButtons("I_plottype", inline = TRUE,
                         label = "Was soll dargestellt werden?",  
@@ -393,8 +394,9 @@ server <- function(input, output, session) {
                 fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
-                    "#fce034", "#f14a26"))) %>%
+                backgroundColor = styleInterval(c(35, 50, 100), c("#62de4a", 
+                    "#fce034", "#f14a26", "#800e0e")), color = 
+                    styleInterval(100, c("#000000", "#ffffff"))) %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
             formatCurrency("Neuinfektionen", currency = "+", interval = 3, 
@@ -412,20 +414,20 @@ server <- function(input, output, session) {
     })
     
     # The main plot of the selected data
-    output$G_plot = renderPlotly({
+    output$G_plot = renderPlot({
         
         pltdat = dataG()
         today = max(pltdat$Datum)
         
         switch(input$G_plottype,
             "Neuinfektionen" = {
-                plt = ggplot(pltdat, aes(x = Datum, y = Neuinfektionen)) +
+                ggplot(pltdat, aes(x = Datum, y = Neuinfektionen)) +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc") +
                     scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
-                        span = 0.125, color = "blue4") + 
+                        span = 0.125, color = "blue4", size = 1) + 
                     coord_cartesian(ylim = c(0, max(pltdat$Neuinfektionen))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
@@ -435,19 +437,19 @@ server <- function(input, output, session) {
             },
             "7 Tage Inzidenz" = {
                 dpl_G = data.frame(x = rep(rep(range(pltdat$Datum) + c(-20, 20), 
-                    each = 2), 3), 
-                    y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 10000, 10000, 50),
-                    Wert = rep(c("< 35", "35 - 50", "> 50"), each = 4))
+                    each = 2), 4), y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 100, 
+                        100, 50, 100, 10000, 10000, 100), Wert = rep(c("< 35", 
+                            "35 - 50", "50 - 100", "> 100"), each = 4))
                 
-                plt = ggplot(pltdat, aes(x = Datum, y = New100k)) +
+                ggplot(pltdat, aes(x = Datum, y = New100k)) +
                     geom_polygon(data = dpl_G, aes(x = x, y = y, fill = Wert),
                         alpha = 0.7) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
-                    geom_line(col = "blue4") + 
+                    geom_line(col = "blue4", size = 1) + 
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdat[Datum == today]$New100k) +
-                    scale_fill_manual(values = c("#62de4a", "#f14a26", 
-                        "#fce034")) + 
+                    scale_fill_manual(values = c("#62de4a", "#800e0e", 
+                        "#fce034", "#f14a26")) + 
                     scale_x_date(date_labels = "%d.%m", 
                         date_breaks = "17 day") +
                     coord_cartesian(ylim = c(0, max(pltdat$New100k)),
@@ -460,9 +462,9 @@ server <- function(input, output, session) {
                         axis.text.y = element_text(angle = 90, hjust = 0.5))
             },
             "Gesamtinfektionen" = {
-                plt = ggplot(pltdat, aes(x = Datum, y = Gesamtinfektionen)) +
+                ggplot(pltdat, aes(x = Datum, y = Gesamtinfektionen)) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
-                    geom_line(col = "blue4") +
+                    geom_line(col = "blue4", size = 1) +
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdat[Datum == today]$Gesamtinfektionen) +
                     scale_x_date(date_labels = "%d.%m",
@@ -475,8 +477,6 @@ server <- function(input, output, session) {
                         axis.text.y = element_text(angle = 90, hjust = 0.5))
             }
         )
-        
-        ggplotly(plt, tooltip = c("y", "x"))
     })
    
     # The table of ranking by Bundesland
@@ -489,8 +489,9 @@ server <- function(input, output, session) {
             colnames = c("Bundesland", "", "7 Tage Inzidenz", 
                 "Neue Fälle", "Gesamt")) %>% 
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
-                    "#fce034", "#f14a26"))) %>%
+                backgroundColor = styleInterval(c(35, 50, 100), c("#62de4a", 
+                    "#fce034", "#f14a26", "#800e0e")), color = 
+                    styleInterval(100, c("#000000", "#ffffff"))) %>%
             formatStyle("Bundesland", fontWeight = "bold") %>% 
             formatCurrency("Gesamt", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
@@ -509,8 +510,9 @@ server <- function(input, output, session) {
             colnames = c("Landkreis", "", "7 Tage Inzidenz", 
                 "Neue Fälle", "Gesamt", "Bundesland")) %>%  
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
-                    "#fce034", "#f14a26"))) %>%
+                backgroundColor = styleInterval(c(35, 50, 100), c("#62de4a", 
+                    "#fce034", "#f14a26", "#800e0e")), color = 
+                    styleInterval(100, c("#000000", "#ffffff"))) %>%
             formatStyle("Landkreis", fontWeight = "bold") %>% 
             formatCurrency("Gesamt", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
@@ -554,8 +556,9 @@ server <- function(input, output, session) {
                 fontWeight = styleEqual(today, "bold", "normal")) %>%
             formatStyle(" ", fontWeight = "bold") %>%
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
-                    "#fce034", "#f14a26"))) %>%
+                backgroundColor = styleInterval(c(35, 50, 100), c("#62de4a", 
+                    "#fce034", "#f14a26", "#800e0e")), color = 
+                    styleInterval(100, c("#000000", "#ffffff"))) %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3, 
                 mark = ",", digits = 0) %>%
             formatCurrency("Neuinfektionen", currency = "+", interval = 3, 
@@ -570,7 +573,7 @@ server <- function(input, output, session) {
     })
     
     # The main plot of the selected data
-    output$I_plot = renderPlotly({
+    output$I_plot = renderPlot({
         pltdatI = dataI()
         today = max(pltdatI$Datum)
         
@@ -582,7 +585,7 @@ server <- function(input, output, session) {
                         date_breaks = "17 day") +
                     labs(y = "Anzahl an Neuinfektionen") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
-                        span = 0.125, color = "blue4") + 
+                        span = 0.125, color = "blue4", size = 1) + 
                     coord_cartesian(ylim = c(0, max(pltdatI$Neuinfektionen))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
@@ -593,19 +596,19 @@ server <- function(input, output, session) {
             "7 Tage Inzidenz" = {
                 # Make polygon for background color
                 dpl = data.frame(x = rep(rep(range(pltdatI$Datum) + c(-20, 20), 
-                    each = 2), 3), 
-                    y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 10000, 10000, 50),
-                    Wert = rep(c("< 35", "35 - 50", "> 50"), each = 4))
+                    each = 2), 4), y = c(0, 35, 35, 0, 35, 50, 50, 35, 50, 100, 
+                        100, 50, 100, 10000, 10000, 100), Wert = rep(c("< 35", 
+                            "35 - 50", "50 - 100", "> 100"), each = 4))
                 
                 pltI = ggplot(pltdatI, aes(x = Datum, y = New100k)) +
                     geom_polygon(data = dpl, aes(x = x, y = y, fill = Wert),
                         alpha = 0.7) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
-                    geom_line(col = "blue4") +
+                    geom_line(col = "blue4", size = 1) +
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdatI[Datum == today]$New100k) +
-                    scale_fill_manual(values = c("#62de4a", "#f14a26", 
-                        "#fce034")) + 
+                    scale_fill_manual(values = c("#62de4a", "#800e0e", 
+                        "#fce034", "#f14a26")) + 
                     coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
                         xlim = range(pltdatI$Datum)) +
                     scale_x_date(date_labels = "%d.%m", 
@@ -620,7 +623,7 @@ server <- function(input, output, session) {
             "Gesamtinfektionen" = {
                 pltI = ggplot(pltdatI, aes(x = Datum, y = Gesamtinfektionen)) +
                     geom_area(stat = "identity", fill = "#3c8dbc") +
-                    geom_line(col = "blue4") +
+                    geom_line(col = "blue4", size = 1) +
                     annotate("point", x = today, col = "blue4", size = 1,
                         y = pltdatI[Datum == today]$Gesamtinfektionen) +
                     scale_x_date(date_labels = "%d.%m", 
@@ -633,8 +636,7 @@ server <- function(input, output, session) {
                         axis.text.y = element_text(angle = 90, hjust = 0.5))
             }
         )
-        
-        ggplotly(pltI)
+        pltI
     })
     
     # The table of ranking by Country
@@ -648,8 +650,9 @@ server <- function(input, output, session) {
                 "Neue Fälle", "Fälle Gesamt", "Durchseuchung",
                 "Neue Tote", "Tote Gesamt", "Einwohner")) %>%
             formatStyle("New100k", fontWeight = "bold", 
-                backgroundColor = styleInterval(c(35, 50), c("#62de4a", 
-                    "#fce034", "#f14a26"))) %>%
+                backgroundColor = styleInterval(c(35, 50, 100), c("#62de4a", 
+                    "#fce034", "#f14a26", "#800e0e")), color = 
+                    styleInterval(100, c("#000000", "#ffffff"))) %>%
             formatStyle("Country", fontWeight = "bold") %>%
             formatCurrency("Gesamtinfektionen", currency = "", interval = 3,
                 mark = ",", digits = 0) %>%
