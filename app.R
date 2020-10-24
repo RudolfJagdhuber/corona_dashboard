@@ -1,10 +1,11 @@
 library(shiny)
 library(shinydashboard)
-library(shinycssloaders)
+library(shinycssloaders) # Loading animation
 library(data.table)
+library(curl) # fread with https connection
 library(ggplot2);theme_set(theme_bw())
-library(sparkline)
-library(DT)
+library(sparkline) # Sparklines in Tables
+library(DT) # Responsive Tables
 
 
 update_data = function() {
@@ -175,10 +176,6 @@ ui = dashboardPage(
     dashboardBody(tabItems(
         
         tabItem(tabName = "AB", # About section
-            p(class = "lead", "Hinweis: Die offiziellen RKI Daten sind oft", 
-                "fehlerhaft und unvollständig. Dafür kann ich nichts. Ich",
-                "nutze nur die offizielle Quelle und visualisiere das",
-                "Ergebnis."),
             h1("Corona Übersicht der 7-Tage-Inzidenz"),
             h2("Noch eine Corona Übersicht?"),
             p(class = "lead", "Neuinfektionen oder Gesamtinfektionen lassen",
