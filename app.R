@@ -194,8 +194,8 @@ ui = dashboardPage(
                 "Sie ist die Grundlage für Maßnahmen in Deutschland. Für",
                 "Bayern gelten aktuell folgende Grenzwerte:"),
             column(width = 12, img(style = 
-                    'height: 100%; width: 100%; object-fit: cover', 
-                src = "corona_ampel.jpg"),
+                    'height: auto; max-width: 100%', 
+                src = "corona_ampel.jpg", width = "720"), br(),
                 "Quelle:", a(href = paste0("https://www.radioarabella.de/",
                     "arabella-aktuell/regierungserklaeurung-soeder-bayern/"),
                     paste0("https://www.radioarabella.de/arabella-aktuell/",
