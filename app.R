@@ -331,7 +331,7 @@ server <- function(input, output, session) {
     D = readRDS("./www/data.rds")
     
     # If the data is older than a day, update it
-    if (D$date_updated - Sys.Date() != 0) D = update_data()
+    #if (D$date_updated - Sys.Date() != 0) D = update_data()
     
     # Make it reactive to identify changes when user presses update button
     Dat = reactiveVal(D)
@@ -432,7 +432,8 @@ server <- function(input, output, session) {
         
         pltdat = dataG()
         today = max(pltdat$Datum)
-        secax = max(pltdat$Neuinfektionen)/max(pltdat$Tote)
+        brks = c(10 * round(seq(-max(pltdat$Tote), 0, length.out = 5), -1), 
+            round(seq(0, max(pltdat$Neuinfektionen), length.out = 5), -1)[-1])
         
         switch(input$G_plottype,
             "Neuinfektionen" = {
@@ -440,7 +441,7 @@ server <- function(input, output, session) {
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc",
                         alpha = 0.5) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Anzahl an Neuinfektionen") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = 0.125, color = "blue4", size = 1.25) + 
@@ -456,7 +457,7 @@ server <- function(input, output, session) {
                     geom_bar(stat = "identity", width = 1, fill = "lightcoral",
                         alpha = 0.5) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Anzahl neuer Todesfälle") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = 0.125, color = "red3", size = 1.25) + 
@@ -491,7 +492,7 @@ server <- function(input, output, session) {
                         "#f14a26"  # lightred
                         )) + 
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     coord_cartesian(ylim = c(0, max(pltdat$New100k)),
                         xlim = range(pltdat$Datum)) +
                     labs(y = "7 Tage Inzidenz") +
@@ -508,7 +509,7 @@ server <- function(input, output, session) {
                     annotate("point", x = today, col = "blue4", size = 2,
                         y = pltdat[Datum == today]$Gesamtinfektionen) +
                     scale_x_date(date_labels = "%d.%m",
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Infektionen Gesamt") +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
@@ -518,28 +519,31 @@ server <- function(input, output, session) {
             },
             "Infektion und Tod" = {
                 ggplot(pltdat, aes(x = Datum, y = Neuinfektionen)) +
+                    geom_hline(yintercept = 0) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
-                    coord_cartesian(ylim = c(0, max(pltdat$Neuinfektionen))) +
-                    geom_bar(aes(y = secax * Tote), stat = "identity", 
-                        width = 1, fill = "lightcoral", alpha = 0.4) +
+                        date_breaks = "20 day") +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc", 
-                        alpha = 0.4) +
-                    geom_smooth(aes(y = secax * Tote), 
-                        method = "loess", formula = y ~ x, se = F, 
-                        span = 0.125, color = "red3", size = 1.25) + 
+                        alpha = 0.7) +
+                    geom_bar(aes(y = -10 * Tote), stat = "identity", width = 1, 
+                        fill = "lightcoral", alpha = 0.7) +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
-                            span = 0.125, color = "blue4", size = 1.25) + 
-                    scale_y_continuous("Neuinfektionen (blau)", 
-                        sec.axis = sec_axis(trans = (~./secax),  
-                            name = "Todesfälle (rot)")) +
+                        span = 0.125, color = "blue4", size = 1.25) + 
+                    geom_smooth(aes(y = -10 * Tote), method = "loess", 
+                        formula = y ~ x, se = F, span = 0.125, color = "red3", 
+                        size = 1.25) + 
+                    annotate("text", x = min(pltdat$Datum), y = 0, 
+                        label = "Neuinfektionen", size = 6, hjust = 0, 
+                        vjust = -1, col = "blue4") +
+                    annotate("text", x = min(pltdat$Datum), y = 0, 
+                        label = "Todesfälle", size = 6, hjust = 0, vjust = 2, 
+                        col = "red3") +
+                    scale_y_continuous(breaks = brks , 
+                        labels = brks/c(rep(-10, 4), rep(1, 5))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
-                        hjust = 1, vjust = 1),
+                        hjust = 1, vjust = 1), 
                         axis.title.x = element_blank(),
-                        plot.title = element_blank(),
-                        axis.text.y.right = element_text(angle = 90, 
-                            hjust = 0.5),
-                        axis.text.y = element_text(angle = 90, hjust = 0.5))
+                        axis.title.y = element_blank(), 
+                        plot.title = element_blank())
             }
         )
     })
@@ -648,7 +652,8 @@ server <- function(input, output, session) {
     output$I_plot = renderPlot({
         pltdatI = dataI()
         today = max(pltdatI$Datum)
-        secaxI = max(pltdatI$Neuinfektionen)/max(pltdatI$Tote)
+        brks = c(10 * round(seq(-max(pltdatI$Tote), 0, length.out = 5), -1), 
+            round(seq(0, max(pltdatI$Neuinfektionen), length.out = 5), -1)[-1])
         
         switch(input$I_plottype,
             "Neuinfektionen" = {
@@ -656,7 +661,7 @@ server <- function(input, output, session) {
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc",
                         alpha = 0.5) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Anzahl an Neuinfektionen") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = 0.125, color = "blue4", size = 1.25) + 
@@ -672,7 +677,7 @@ server <- function(input, output, session) {
                     geom_bar(stat = "identity", width = 1, fill = "lightcoral",
                         alpha = 0.5) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Anzahl neuer Todesfälle") +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = 0.125, color = "red3", size = 1.25) + 
@@ -710,7 +715,7 @@ server <- function(input, output, session) {
                     coord_cartesian(ylim = c(0, max(pltdatI$New100k)),
                         xlim = range(pltdatI$Datum)) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "7 Tage Inzidenz") +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1), legend.position = "none",
@@ -725,7 +730,7 @@ server <- function(input, output, session) {
                     annotate("point", x = today, col = "blue4", size = 2,
                         y = pltdatI[Datum == today]$Gesamtinfektionen) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
+                        date_breaks = "20 day") +
                     labs(y = "Infektionen Gesamt") +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
                         hjust = 1, vjust = 1),
@@ -735,28 +740,31 @@ server <- function(input, output, session) {
             },
             "Infektion und Tod" = {
                 pltI = ggplot(pltdatI, aes(x = Datum, y = Neuinfektionen)) +
+                    geom_hline(yintercept = 0) +
                     scale_x_date(date_labels = "%d.%m", 
-                        date_breaks = "17 day") +
-                    coord_cartesian(ylim = c(0, max(pltdatI$Neuinfektionen))) +
-                    geom_bar(aes(y = secaxI * Tote), stat = "identity", 
-                        width = 1, fill = "lightcoral", alpha = 0.4) +
+                        date_breaks = "20 day") +
                     geom_bar(stat = "identity", width = 1, fill = "#3c8dbc", 
-                        alpha = 0.4) +
-                    geom_smooth(aes(y = secaxI * Tote), 
-                        method = "loess", formula = y ~ x, se = F, 
-                        span = 0.125, color = "red3", size = 1.25) + 
+                        alpha = 0.7) +
+                    geom_bar(aes(y = -10 * Tote), stat = "identity", width = 1, 
+                        fill = "lightcoral", alpha = 0.7) +
                     geom_smooth(method = "loess", formula = y ~ x, se = F, 
                         span = 0.125, color = "blue4", size = 1.25) + 
-                    scale_y_continuous("Neuinfektionen (blau)", 
-                        sec.axis = sec_axis(trans = (~./secaxI),  
-                            name = "Todesfälle (rot)")) +
+                    geom_smooth(aes(y = -10 * Tote), method = "loess", 
+                        formula = y ~ x, se = F, span = 0.125, color = "red3", 
+                        size = 1.25) + 
+                    annotate("text", x = min(pltdatI$Datum), y = 0, 
+                        label = "Neuinfektionen", size = 6, hjust = 0, 
+                        vjust = -1, col = "blue4") +
+                    annotate("text", x = min(pltdatI$Datum), y = 0, 
+                        label = "Todesfälle", size = 6, hjust = 0, vjust = 2, 
+                        col = "red3") +
+                    scale_y_continuous(breaks = brks , 
+                        labels = brks/c(rep(-10, 4), rep(1, 5))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
-                        hjust = 1, vjust = 1),
+                        hjust = 1, vjust = 1), 
                         axis.title.x = element_blank(),
-                        plot.title = element_blank(),
-                        axis.text.y.right = element_text(angle = 90, 
-                            hjust = 0.5),
-                        axis.text.y = element_text(angle = 90, hjust = 0.5))
+                        axis.title.y = element_blank(), 
+                        plot.title = element_blank())
             }
         )
         pltI
