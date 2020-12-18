@@ -331,7 +331,7 @@ server <- function(input, output, session) {
     D = readRDS("./www/data.rds")
     
     # If the data is older than a day, update it
-    #if (D$date_updated - Sys.Date() != 0) D = update_data()
+    if (D$date_updated - Sys.Date() != 0) D = update_data()
     
     # Make it reactive to identify changes when user presses update button
     Dat = reactiveVal(D)
@@ -532,11 +532,11 @@ server <- function(input, output, session) {
                         formula = y ~ x, se = F, span = 0.125, color = "red3", 
                         size = 1.25) + 
                     annotate("text", x = min(pltdat$Datum), y = 0, 
-                        label = "Neuinfektionen", size = 6, hjust = 0, 
-                        vjust = -1, col = "blue4") +
+                        label = "Infektionen", size = 6, hjust = -0.2, 
+                        col = "blue4", angle = 90) +
                     annotate("text", x = min(pltdat$Datum), y = 0, 
-                        label = "Todesfälle", size = 6, hjust = 0, vjust = 2, 
-                        col = "red3") +
+                        label = "Tote", size = 6, hjust = 1.35, 
+                        col = "red3", angle = 90) +
                     scale_y_continuous(breaks = brks , 
                         labels = brks/c(rep(-10, 4), rep(1, 5))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
@@ -753,11 +753,11 @@ server <- function(input, output, session) {
                         formula = y ~ x, se = F, span = 0.125, color = "red3", 
                         size = 1.25) + 
                     annotate("text", x = min(pltdatI$Datum), y = 0, 
-                        label = "Neuinfektionen", size = 6, hjust = 0, 
-                        vjust = -1, col = "blue4") +
+                        label = "Infektionen", size = 6, hjust = -0.2, 
+                        col = "blue4", angle = 90) +
                     annotate("text", x = min(pltdatI$Datum), y = 0, 
-                        label = "Todesfälle", size = 6, hjust = 0, vjust = 2, 
-                        col = "red3") +
+                        label = "Tote", size = 6, hjust = 1.35, 
+                        col = "red3", angle = 90) +
                     scale_y_continuous(breaks = brks , 
                         labels = brks/c(rep(-10, 4), rep(1, 5))) +
                     theme(axis.text.x = element_text(angle = 60, size = 10,
