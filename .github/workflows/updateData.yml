@@ -1,0 +1,44 @@
+name: "Update the RKI and WHO Data"
+
+on:
+  # Can be triggered manually
+  workflow_dispatch:
+
+  # Runs daily at 7 AM
+  schedule:
+  - cron: "0 7 * * *"
+
+jobs:
+  updateRkiWho:
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      
+      # The update script needs some additonal R packages
+      - name: Install R package dependencies
+        env:
+          R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+        run: Rscript -e "install.packages(c('data.table', 'sparkline'))"
+
+      # Run the data update script
+      - name: Run the script to update the file www/data.rds
+        run: Rscript updater.R
+        
+      # Some diagnostics
+      - name: Check for changes
+        run: git status
+        
+      # Stage changes
+      - name: Stage changed data set
+        run: git add www/data.rds
+        
+      # Commit changes
+      - name: commit changed file
+        run: git commit -m "Daily Auto-Update of RKI/WHO data"
+        
+      # Push to remote
+      - name: Push updated file to GitHub
+        run: git push origin master
+        
