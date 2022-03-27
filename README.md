@@ -10,7 +10,4 @@ population.
 This dashboard focusses on this statistic and presents data from the RKI and 
 WHO.
 
-Official limits for actions to be taken are highlighted according to the corona
-traffic light scheme.
-
 https://jagdhuber.shinyapps.io/Corona_Dashboard/
