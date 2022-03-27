@@ -1,6 +1,9 @@
 name: "Update the RKI and WHO Data"
 
 on:
+  # Can be triggered manually
+  workflow_dispatch:
+
   # Runs daily at 7 AM
   schedule:
   - cron: "0 7 * * *"
