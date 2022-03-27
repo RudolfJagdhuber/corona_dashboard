@@ -3,6 +3,7 @@
 # Note: I create a custom lib.loc on github to have writing access
 library(data.table, lib.loc = "./tmpLib")
 library(sparkline, lib.loc = "./tmpLib")
+library(curl, lib.loc = "./tmpLib")
 
 # function to compute vector of summed infections for last n days
 # ni = New infections vector sorted by date (newest first!)
