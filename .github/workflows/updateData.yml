@@ -15,10 +15,13 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+      
+      - name: Test 1
+        run: ls
 
       # Runs a single command using the runners shell
       - name: Run the script to update the file www/data.rds
-        run: R CMD BATCH updater.R
+        run: Rscript updater.R
         
       # Some diagnostics
       - name: Check for changes
