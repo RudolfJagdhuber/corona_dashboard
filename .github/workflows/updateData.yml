@@ -18,6 +18,8 @@ jobs:
       
       # The update script needs some additonal R packages
       - name: Install R package dependencies
+        env:
+          R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
         run: Rscript -e "install.packages(c('data.table', 'sparkline'))"
 
       # Run the data update script
