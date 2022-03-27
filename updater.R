@@ -1,7 +1,7 @@
 # Helper to fetch the most recent RKI and WHO data sets, format and store it
 
-library(data.table)
-library(sparkline)
+library(data.table, lib.loc = "./tmpLib")
+library(sparkline, lib.loc = "./tmpLib"))
 
 # function to compute vector of summed infections for last n days
 # ni = New infections vector sorted by date (newest first!)
