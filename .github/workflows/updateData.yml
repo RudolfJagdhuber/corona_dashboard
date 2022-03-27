@@ -23,7 +23,7 @@ jobs:
           R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
         run: |
           mkdir tmpLib
-          Rscript -e "install.packages(c('data.table', 'sparkline', 'curl'), lib = './tmpLib')"
+          Rscript -e "install.packages(c('data.table', 'sparkline', 'curl'), lib = './tmpLib', repos = 'http://cran.us.r-project.org')"
 
       # Run the data update script
       - name: Run the script to update the file www/data.rds
