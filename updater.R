@@ -1,6 +1,8 @@
 # Helper to fetch the most recent RKI and WHO data sets, format and store it
 
+
 # Note: I create a custom lib.loc on github to have writing access
+.libPaths(c(paste0(getwd(),"/tmpLib"), .libPaths()))
 library(data.table, lib.loc = "./tmpLib")
 library(sparkline, lib.loc = "./tmpLib")
 library(curl, lib.loc = "./tmpLib")
