@@ -29,19 +29,14 @@ jobs:
       - name: Run the script to update the file www/data.rds
         run: Rscript updater.R
         
-      # Some diagnostics
-      - name: Check for changes
-        run: git status
-        
       # Stage changes
       - name: Stage changed data set
         run: git add www/data.rds
         
-      # Commit changes
-      - name: commit changed file
-        run: git commit -m "Daily Auto-Update of RKI/WHO data"
-        
-      # Push to remote
-      - name: Push updated file to GitHub
-        run: git push origin master
-        
+      # Commit changes and push to remote
+      - name: Commit and Push
+        run: |
+          git config --global user.name 'RudolfJagdhuber'
+          git config --global user.email 'r.jagdhuber@gmail.com'
+          git commit -m "Daily Auto-Update of RKI/WHO data"
+          git push        
