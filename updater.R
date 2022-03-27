@@ -8,7 +8,7 @@ library(sparkline, lib.loc = "./tmpLib")
 library(curl, lib.loc = "./tmpLib")
 
 # Set local timezone (no default on github machine)
-Sys.setenv(TZ = 'GMT')
+Sys.setenv(TZ = 'Europe/Berlin')
 
 # function to compute vector of summed infections for last n days
 # ni = New infections vector sorted by date (newest first!)
