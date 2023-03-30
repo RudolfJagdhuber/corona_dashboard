@@ -1,42 +1,42 @@
-name: "Update the RKI and WHO Data"
+# name: "Update the RKI and WHO Data"
 
-on:
-  # Can be triggered manually
-  workflow_dispatch:
+# on:
+#   # Can be triggered manually
+#   workflow_dispatch:
 
-  # Runs daily at 6 AM
-  schedule:
-  - cron: "0 6 * * *"
+#   # Runs daily at 6 AM
+#   schedule:
+#   - cron: "0 6 * * *"
 
-jobs:
-  updateRkiWho:
-    # windows uses pre-compiled r-packages. Way faster in installation
-    runs-on: windows-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+# jobs:
+#   updateRkiWho:
+#     # windows uses pre-compiled r-packages. Way faster in installation
+#     runs-on: windows-latest
+#     # Steps represent a sequence of tasks that will be executed as part of the job
+#     steps:
+#       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+#       - uses: actions/checkout@v2
       
-      # The update script needs some additonal R packages
-      - name: Install R package dependencies locally
-        env:
-          R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
-        run: |
-          mkdir tmpLib
-          Rscript -e "install.packages(c('data.table', 'sparkline', 'curl'), lib = './tmpLib', repos = 'http://cran.us.r-project.org')"
+#       # The update script needs some additonal R packages
+#       - name: Install R package dependencies locally
+#         env:
+#           R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+#         run: |
+#           mkdir tmpLib
+#           Rscript -e "install.packages(c('data.table', 'sparkline', 'curl'), lib = './tmpLib', repos = 'http://cran.us.r-project.org')"
 
-      # Run the data update script
-      - name: Run the script to update the file www/data.rds
-        run: Rscript updater.R
+#       # Run the data update script
+#       - name: Run the script to update the file www/data.rds
+#         run: Rscript updater.R
         
-      # Stage changes
-      - name: Stage changed data set
-        run: git add www/data.rds
+#       # Stage changes
+#       - name: Stage changed data set
+#         run: git add www/data.rds
         
-      # Commit changes and push to remote
-      - name: Commit and Push
-        run: |
-          git config --global user.name 'RudolfJagdhuber'
-          git config --global user.email 'r.jagdhuber@gmail.com'
-          git commit -m "Daily Auto-Update of RKI/WHO data"
-          git push        
+#       # Commit changes and push to remote
+#       - name: Commit and Push
+#         run: |
+#           git config --global user.name 'RudolfJagdhuber'
+#           git config --global user.email 'r.jagdhuber@gmail.com'
+#           git commit -m "Daily Auto-Update of RKI/WHO data"
+#           git push        
